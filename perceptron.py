@@ -10,6 +10,8 @@ import random
 from itertools import count, chain
 
 def perceptron(df):
+	'''Takes in a dataframe df and performs the perceptron learning algorithm. Returns
+	the weight vector w.'''
 	w = pd.DataFrame(np.zeros((1,len(df.columns)-1)))
 	x = df.iloc[:,:-1]
 	y = df.iloc[:,-1]
@@ -25,6 +27,9 @@ def perceptron(df):
 			return w
 
 def kFoldCrossValidation(df,algorithm=perceptron,k=10):
+	'''Takes in a dataframe df, and optional algorithm (default perceptron),
+	and k-value (default 10). Returns the weight vector with the lowest error.'''
+
 	random.seed(13579)
 	#Split into training and testing sets
 	df["trainTest"] = [random.random() for i in range(len(df))]
@@ -36,6 +41,9 @@ def kFoldCrossValidation(df,algorithm=perceptron,k=10):
 	#Determine folds for cross-validation
 	trainAndValidation["fold"] = [random.randint(0,k-1) for i in range(len(trainAndValidation))]
 	errors = {}
+	sumErrors = 0
+	minError = 1
+	minErrorPredictor = None
 	for i in range(k):
 		validation = trainAndValidation[trainAndValidation["fold"]==i]
 		train = trainAndValidation[trainAndValidation["fold"]!=i]
@@ -59,7 +67,16 @@ def kFoldCrossValidation(df,algorithm=perceptron,k=10):
 				else:
 					errors[i] = {"count":1,"pct":0}
 		errors[i]["pct"] = errors[i]["count"]/float(len(validation))
-	print(errors)
+		sumErrors += errors[i]["pct"]
+		if(errors[i]["pct"]<minError):
+			minErrorPredictor = output
+		print("Fold number "+str(i)+" had an error rate of: "+str(errors[i]["pct"])+\
+			"% \nWith a weight vector:\n" + str(output))
+
+	#Final results printout
+	print("Mean error averaged across all folds was: " +str(sumErrors/k)+"%")
+	print("Final predictor selected is:\n"+ str(minErrorPredictor))
+	return minErrorPredictor
 
 
 
