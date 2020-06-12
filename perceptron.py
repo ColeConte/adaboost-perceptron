@@ -28,10 +28,12 @@ def perceptron(df):
 
 def kFoldCrossValidation(df,algorithm=perceptron,k=10):
 	'''Takes in a dataframe df, and optional algorithm (default perceptron),
-	and k-value (default 10). Returns the weight vector with the lowest error.'''
+	and k-value (default 10). Returns the weight vector with the lowest error
+	on the validation data.'''
 
 	random.seed(13579)
 	#Split into training and testing sets
+	print("Splitting data into 80% training, 20% testing.\n")
 	df["trainTest"] = [random.random() for i in range(len(df))]
 	test = df[df["trainTest"]>=0.8]
 	test = test.drop(labels="trainTest",axis=1)
@@ -39,11 +41,14 @@ def kFoldCrossValidation(df,algorithm=perceptron,k=10):
 	trainAndValidation = trainAndValidation.drop(labels="trainTest",axis=1)
 
 	#Determine folds for cross-validation
+	print("Splitting training data into "+str(k)+" folds for cross-validation.\n")
 	trainAndValidation["fold"] = [random.randint(0,k-1) for i in range(len(trainAndValidation))]
 	errors = {}
 	sumErrors = 0
 	minError = 1
 	minErrorPredictor = None
+
+	#Perform cross-validation to pick the best hyperparameters
 	for i in range(k):
 		validation = trainAndValidation[trainAndValidation["fold"]==i]
 		train = trainAndValidation[trainAndValidation["fold"]!=i]
@@ -59,7 +64,7 @@ def kFoldCrossValidation(df,algorithm=perceptron,k=10):
 		output = pd.DataFrame(data,columns=["x1","x2"])
 		#output = algorithm(train.iloc[:,:-1])
 
-		#Test for errors
+		#Test for errors on validation set
 		for j in range(len(validation)):
 			if(validation.iloc[j,:-1].dot(output.iloc[0])*validation.iloc[j,-1] <= 0):
 				if i in errors:
@@ -75,7 +80,13 @@ def kFoldCrossValidation(df,algorithm=perceptron,k=10):
 
 	#Final results printout
 	print("Mean error averaged across all folds was: " +str(sumErrors/k)+"%")
-	print("Final predictor selected is:\n"+ str(minErrorPredictor))
+	print("Predictor with lowest error is selected. Weight vector is:\n"+ str(minErrorPredictor))
+	testErrors = 0
+	#Error on test dataset
+	for j in range(len(test)):
+		if(test.iloc[j,:-1].dot(minErrorPredictor.iloc[0])*test.iloc[j,-1] <= 0):
+			testErrors+=1
+	print("Error on test data is: "+str(testErrors/float(len(test)))+"%")
 	return minErrorPredictor
 
 
