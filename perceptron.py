@@ -12,19 +12,23 @@ from itertools import count, chain
 def perceptron(df):
 	'''Takes in a dataframe df and performs the perceptron learning algorithm. Returns
 	the weight vector w.'''
+
+	df.iloc[:,-1] = df.iloc[:,-1].map(lambda y: -1 if y == 0 else 1)
+	df["bias"] = 1.0
+	cols = df.columns.tolist()
+	cols = cols[-1:] + cols[:-1]
+	df = df[cols]
 	w = pd.DataFrame(np.zeros((1,len(df.columns)-1)))
-	x = df.iloc[:,:-1]
-	y = df.iloc[:,-1]
-	y = y.replace(0,-1)
-	w.columns = x.columns.values
-	for t in count():
-		for i in range(len(df)):
-			if (x.iloc[i].dot(w.iloc[0]))*y.iloc[i] <= 0:
-				w = pd.DataFrame(w.iloc[0]+ (y.iloc[i]*x.iloc[i]))
-				w = w.T
-				break
-		if i == (len(df)-1):
-			return w
+	w.columns = df.columns.values[:-1]
+	for _ in range(len(df)):
+		i=0
+		while(df.iloc[i,:-1].dot(w.iloc[0])*df.iloc[i,-1] >0):
+			i+=1
+			if(i==len(df)):
+				return w
+		w = pd.DataFrame(w + (df.iloc[i,-1]*df.iloc[i,:-1]))	
+	return w
+
 
 def kFoldCrossValidation(df,algorithm=perceptron,k=10):
 	'''Takes in a dataframe df, and optional algorithm (default perceptron),
@@ -58,31 +62,42 @@ def kFoldCrossValidation(df,algorithm=perceptron,k=10):
 		#Represent success and failure as -1 and 1
 		validation.iloc[:,-1] = validation.iloc[:,-1].map(lambda y: -1 if y == 0 else 1)
 		
-		#Sample perceptron output since its not converging rn 
-		data = {"x1":[-20],
-				"x2":[5]}
-		output = pd.DataFrame(data,columns=["x1","x2"])
-		#output = algorithm(train.iloc[:,:-1])
+		#Use training set to train on algorithm
+		output = algorithm(train.iloc[:,:])
 
 		#Test for errors on validation set
+		validation["bias"] = 1.0
+		cols = validation.columns.tolist()
+		cols = cols[-1:] + cols[:-1]
+		validation = validation[cols]
+
 		for j in range(len(validation)):
 			if(validation.iloc[j,:-1].dot(output.iloc[0])*validation.iloc[j,-1] <= 0):
 				if i in errors:
 					errors[i]["count"]+=1
 				else:
 					errors[i] = {"count":1,"pct":0}
+			if i not in errors:
+				errors[i] = {"count":0,"pct":0}
 		errors[i]["pct"] = errors[i]["count"]/float(len(validation))
 		sumErrors += errors[i]["pct"]
 		if(errors[i]["pct"]<minError):
 			minErrorPredictor = output
+			minError = errors[i]["pct"]
 		print("Fold number "+str(i)+" had an error rate of: "+str(errors[i]["pct"])+\
 			"% \nWith a weight vector:\n" + str(output))
 
 	#Final results printout
 	print("Mean error averaged across all folds was: " +str(sumErrors/k)+"%")
 	print("Predictor with lowest error is selected. Weight vector is:\n"+ str(minErrorPredictor))
+
+	#Compute error on test dataset
 	testErrors = 0
-	#Error on test dataset
+	test["bias"] = 1.0
+	cols = test.columns.tolist()
+	cols = cols[-1:] + cols[:-1]
+	test = test[cols]
+
 	for j in range(len(test)):
 		if(test.iloc[j,:-1].dot(minErrorPredictor.iloc[0])*test.iloc[j,-1] <= 0):
 			testErrors+=1
