@@ -35,14 +35,8 @@ def kFoldCrossValidation(df,algorithm=perceptron,k=10):
 	and k-value (default 10). Returns the weight vector with the lowest error
 	on the validation data.'''
 
-	random.seed(13579)
-	#Split into training and testing sets
-	print("Splitting data into 80% training, 20% testing.\n")
-	df["trainTest"] = [random.random() for i in range(len(df))]
-	test = df[df["trainTest"]>=0.8]
-	test = test.drop(labels="trainTest",axis=1)
-	trainAndValidation = df[df["trainTest"]<0.8]
-	trainAndValidation = trainAndValidation.drop(labels="trainTest",axis=1)
+	#Split train/test
+	trainAndValidation,test = trainTestSplit(df)
 
 	#Determine folds for cross-validation
 	print("Splitting training data into "+str(k)+" folds for cross-validation.\n")
@@ -104,6 +98,55 @@ def kFoldCrossValidation(df,algorithm=perceptron,k=10):
 	print("Error on test data is: "+str(testErrors/float(len(test)))+"%")
 	return minErrorPredictor
 
+def empiricalRiskMin(df,algorithm=perceptron):
+	'''Takes in a dataframe df and optional algorithm (default perceptron).
+	Returns computed weight vector using training data.'''
+
+	#Split train/test
+	train,test = trainTestSplit(df)
+
+	#Represent success and failure as -1 and 1
+	train.iloc[:,-1] = train.iloc[:,-1].map(lambda y: -1 if y == 0 else 1)
+	test.iloc[:,-1] = test.iloc[:,-1].map(lambda y: -1 if y == 0 else 1)
+		
+	#Use training set to train on algorithm
+	output = algorithm(train.iloc[:,:])
+
+	#Get empirical risk
+	train["bias"] = 1.0
+	cols = train.columns.tolist()
+	cols = cols[-1:] + cols[:-1]
+	train = train[cols]
+	trainErrors = 0
+	for j in range(len(train)):
+		if(train.iloc[j,:-1].dot(output.iloc[0])*train.iloc[j,-1] <= 0):
+			trainErrors+=1
+
+	print("Error on train data is: "+str(trainErrors/float(len(train)))+"%")
+	print("using weight vector:\n" + str(output))
+
+	#Test for errors on validation set
+	test["bias"] = 1.0
+	cols = test.columns.tolist()
+	cols = cols[-1:] + cols[:-1]
+	test = test[cols]
+	testErrors = 0
+	for j in range(len(test)):
+		if(test.iloc[j,:-1].dot(output.iloc[0])*test.iloc[j,-1] <= 0):
+			testErrors+=1
+
+	print("Error on test data is: "+str(testErrors/float(len(test)))+"%")
+
+
+def trainTestSplit(df):
+	random.seed(13579)
+	print("Splitting data into 80% training, 20% testing.\n")
+	df["trainTest"] = [random.random() for i in range(len(df))]
+	test = df[df["trainTest"]>=0.8]
+	test = test.drop(labels="trainTest",axis=1)
+	train = df[df["trainTest"]<0.8]
+	train = train.drop(labels="trainTest",axis=1)
+	return train,test
 
 
 parser = argparse.ArgumentParser()
@@ -114,8 +157,8 @@ args = parser.parse_args()
 df = pd.read_csv(args.dataset)
 if args.mode == "cv":
 	kFoldCrossValidation(df,perceptron)
-else:
-	perceptron(df)
+elif args.mode == "erm":
+	empiricalRiskMin(df)
 
 
 
