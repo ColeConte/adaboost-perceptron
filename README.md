@@ -1,4 +1,4 @@
-# CSE 512 HW 1 
+# Perceptron and AdaBoost
 Implemented the perceptron and AdaBoost (using decision stumps as weak learners) algorithms from scratch. Also implemented k-fold cross validation for use in verifying efficacy of both algorithms.
 
 ## Usage
