@@ -13,7 +13,6 @@ def perceptron(df):
 	'''Takes in a dataframe df and performs the perceptron learning algorithm. Returns
 	the weight vector w.'''
 
-	df.iloc[:,-1] = df.iloc[:,-1].map(lambda y: -1 if y == 0 else 1)
 	df["bias"] = 1.0
 	cols = df.columns.tolist()
 	cols = cols[-1:] + cols[:-1]
@@ -35,11 +34,16 @@ def kFoldCrossValidation(df,algorithm=perceptron,k=10):
 	and k-value (default 10). Returns the weight vector with the lowest error
 	on the validation data.'''
 
+	#Represent success and failure as -1 and 1
+	df.iloc[:,-1] = df.iloc[:,-1].map(lambda y: -1 if y == 0 else 1)
+
 	#Split train/test
 	trainAndValidation,test = trainTestSplit(df)
 
 	#Determine folds for cross-validation
 	print("Splitting training data into "+str(k)+" folds for cross-validation.\n")
+
+
 	trainAndValidation["fold"] = [random.randint(0,k-1) for i in range(len(trainAndValidation))]
 	errors = {}
 	sumErrors = 0
@@ -52,9 +56,6 @@ def kFoldCrossValidation(df,algorithm=perceptron,k=10):
 		train = trainAndValidation[trainAndValidation["fold"]!=i]
 		validation = validation.drop(labels="fold",axis=1)
 		train = train.drop(labels="fold",axis=1)
-
-		#Represent success and failure as -1 and 1
-		validation.iloc[:,-1] = validation.iloc[:,-1].map(lambda y: -1 if y == 0 else 1)
 		
 		#Use training set to train on algorithm
 		output = algorithm(train.iloc[:,:])
@@ -78,7 +79,7 @@ def kFoldCrossValidation(df,algorithm=perceptron,k=10):
 		if(errors[i]["pct"]<minError):
 			minErrorPredictor = output
 			minError = errors[i]["pct"]
-		print("Fold number "+str(i)+" had an error rate of: "+str(errors[i]["pct"])+\
+		print("Fold number "+str(i)+" had an error rate of: "+str(100*errors[i]["pct"])+\
 			"% \nWith a weight vector:\n" + str(output))
 
 	#Final results printout
@@ -102,12 +103,12 @@ def empiricalRiskMin(df,algorithm=perceptron):
 	'''Takes in a dataframe df and optional algorithm (default perceptron).
 	Returns computed weight vector using training data.'''
 
+	#Represent success and failure as -1 and 1
+	df.iloc[:,-1] = df.iloc[:,-1].map(lambda y: -1 if y == 0 else 1)
+
 	#Split train/test
 	train,test = trainTestSplit(df)
 
-	#Represent success and failure as -1 and 1
-	train.iloc[:,-1] = train.iloc[:,-1].map(lambda y: -1 if y == 0 else 1)
-	test.iloc[:,-1] = test.iloc[:,-1].map(lambda y: -1 if y == 0 else 1)
 		
 	#Use training set to train on algorithm
 	output = algorithm(train.iloc[:,:])
