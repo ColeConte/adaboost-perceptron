@@ -82,7 +82,7 @@ def kFoldCrossValidation(df,algorithm=perceptron,k=10):
 			"% \nWith a weight vector:\n" + str(output))
 
 	#Final results printout
-	print("Mean error averaged across all folds was: " +str(sumErrors/k)+"%")
+	print("Mean error averaged across all folds was: " +str(100*sumErrors/k)+"%")
 	print("Predictor with lowest error is selected. Weight vector is:\n"+ str(minErrorPredictor))
 
 	#Compute error on test dataset
@@ -95,7 +95,7 @@ def kFoldCrossValidation(df,algorithm=perceptron,k=10):
 	for j in range(len(test)):
 		if(test.iloc[j,:-1].dot(minErrorPredictor.iloc[0])*test.iloc[j,-1] <= 0):
 			testErrors+=1
-	print("Error on test data is: "+str(testErrors/float(len(test)))+"%")
+	print("Error on test data is: "+str(100*testErrors/float(len(test)))+"%")
 	return minErrorPredictor
 
 def empiricalRiskMin(df,algorithm=perceptron):
@@ -122,10 +122,10 @@ def empiricalRiskMin(df,algorithm=perceptron):
 		if(train.iloc[j,:-1].dot(output.iloc[0])*train.iloc[j,-1] <= 0):
 			trainErrors+=1
 
-	print("Error on train data is: "+str(trainErrors/float(len(train)))+"%")
+	print("Error on train data is: "+str(100*trainErrors/float(len(train)))+"%")
 	print("using weight vector:\n" + str(output))
 
-	#Test for errors on validation set
+	#Test for errors on test set
 	test["bias"] = 1.0
 	cols = test.columns.tolist()
 	cols = cols[-1:] + cols[:-1]
@@ -135,7 +135,7 @@ def empiricalRiskMin(df,algorithm=perceptron):
 		if(test.iloc[j,:-1].dot(output.iloc[0])*test.iloc[j,-1] <= 0):
 			testErrors+=1
 
-	print("Error on test data is: "+str(testErrors/float(len(test)))+"%")
+	print("Error on test data is: "+str(100*testErrors/float(len(test)))+"%")
 
 
 def trainTestSplit(df):

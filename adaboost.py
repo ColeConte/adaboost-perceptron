@@ -35,39 +35,29 @@ def decisionStump(df,i=0):
 
 
 
-def adaBoost(df,rounds=7):
+def adaBoost(df,rounds):
 	'''Takes in a dataframe df and optional rounds parameter (default 10)
 	and performs the adaboost learning algorithm.'''
 
 	#Represent success and failure as -1 and 1
-	df.iloc[:,-1] = df.iloc[:,-1].map(lambda y: -1.0 if y == 0 else 1.0)
 	df["weight"] = 1.0/len(df)
 	learners = []
+	print("Performing "+str(rounds) +" rounds of boosting.")
 	for i in range(rounds):
 		#invoke weak learner
 		jstar, Thetastar = decisionStump(df,i)
-		learners.append((jstar,Thetastar))
 		epsilon = sum(df[((df.iloc[:,jstar]>Thetastar) & (df.iloc[:,-(2+i)]==1)) | ((df.iloc[:,jstar]<=Thetastar) & (df.iloc[:,-(2+i)]==-1))].iloc[:,-1])
 		w = 0.5*np.log((1.0/epsilon)-1.0)
+		learners.append([jstar,Thetastar,w])
 		df["stump"] =  df.iloc[:,jstar].map(lambda x: -1.0 if x>Thetastar else 1.0)
 		denomSum = sum(df.apply(lambda x: x.iloc[-(2+i)] * math.exp(-w*x.iloc[-(3+i)]*x.iloc[-1]),axis=1))
 		weightName = "weight" + str(i)
-		df[weightName] = df.apply(lambda x: x.iloc[-(2+i)] * math.exp(-w*x.iloc[-(3+i)]*x.iloc[-1]) / denomSum,axis=1)
+		df[weightName] = df.apply(lambda x: (x.iloc[-(2+i)] * math.exp(-w*x.iloc[-(3+i)]*x.iloc[-1])) / denomSum,axis=1)
 		df = df.drop("stump",axis=1)
 	df = df.drop(weightName,axis=1)
 
-	#Compute number of failures using strong learner
-	df["sum"] = 0
-	for j in range(rounds):
-		jstar = learners[j][0]
-		Thetastar = learners[j][1]
-		df["stump"] = df.iloc[:,jstar].map(lambda x: -1.0 if x>Thetastar else 1.0)
-		df["sum"] = df["sum"] + (df["stump"]* df.iloc[:,-(3+(rounds-1-j))])
-		df = df.drop("stump",axis=1)
-	df["hypothesis"] = df["sum"].map(lambda x: -1.0 if x<=0 else 1.0)
-	print(len((df[df["hypothesis"]!= df["diagnosis"]])))
-
-
+	return learners
+	
 
 def kFoldCrossValidation(df,algorithm=adaBoost,k=10):
 	'''Takes in a dataframe df, and optional algorithm (default adaboost),
@@ -75,10 +65,49 @@ def kFoldCrossValidation(df,algorithm=adaBoost,k=10):
 	on the validation data.'''
 	pass
 
-def empiricalRiskMin(df,algorithm=adaBoost):
+def empiricalRiskMin(df,algorithm=adaBoost,trainingRounds=10):
 	'''Takes in a dataframe df and optional algorithm (default adaboost).
 	Returns computed weight vector using training data.'''
-	pass
+
+	#Split train/test
+	train,test = trainTestSplit(df)
+
+	#Represent success and failure as -1 and 1
+	train.iloc[:,-1] = train.iloc[:,-1].map(lambda y: -1 if y == 0 else 1)
+	test.iloc[:,-1] = test.iloc[:,-1].map(lambda y: -1 if y == 0 else 1)
+
+	#Use training set to train on algorithm
+	learners = algorithm(train.copy(),trainingRounds)
+	train["sum"] = 0
+
+	#Compute number of failures on train set using strong learner
+	print("Strong learner consists of the following (jstar, Thetastar, w) stumps:")
+	print(learners)
+
+	for j in range(trainingRounds):
+		jstar = learners[j][0]
+		Thetastar = learners[j][1]
+		w = learners[j][2]
+		train["stump"] = train.iloc[:,jstar].map(lambda x: -1.0 if x > Thetastar else 1.0)
+		train["sum"] = train["sum"] + (train["stump"]*w)
+		train = train.drop("stump",axis=1)
+	train["hypothesis"] = train["sum"].map(lambda x: -1.0 if x<=0 else 1.0)
+	trainErrors = len((train[train["hypothesis"]!= train.iloc[:,-3]]))
+	print("Error on train data is: "+str(100*trainErrors/float(len(train)))+"%")
+
+	#Compute number of failures on test set using strong learner
+	test["sum"] = 0
+	for j in range(trainingRounds):
+		jstar = learners[j][0]
+		Thetastar = learners[j][1]
+		w = learners[j][2]
+		test["stump"] = test.iloc[:,jstar].map(lambda x: -1.0 if x>Thetastar else 1.0)
+		test["sum"] = test["sum"] + (test["stump"]* w)
+		test = test.drop("stump",axis=1)
+	test["hypothesis"] = test["sum"].map(lambda x: -1.0 if x<=0 else 1.0)
+	testErrors = len((test[test["hypothesis"]!= test.iloc[:,-3]]))
+	print("Error on test data is: "+str(100*testErrors/float(len(test)))+"%")
+
 
 def trainTestSplit(df):
 	'''Takes in a dataframe and returns testing and training dataframes'''
@@ -94,12 +123,12 @@ def trainTestSplit(df):
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset")
 parser.add_argument("--mode")
+parser.add_argument("--rounds")
 args = parser.parse_args()
 
 df = pd.read_csv(args.dataset)
-adaBoost(df)
 
-# if args.mode == "cv":
-# 	kFoldCrossValidation(df,adaBoost)
-# elif args.mode == "erm":
-# 	empiricalRiskMin(df)
+if args.mode == "cv":
+	kFoldCrossValidation(df,adaBoost,int(args.rounds))
+elif args.mode == "erm":
+	empiricalRiskMin(df, adaBoost, int(args.rounds))
